@@ -209,13 +209,14 @@ class SetFavoriteDirectory(DirectoryPaneCommand):
             # from the user.
             #
             dirName = shortenDirPath(dirName)
-            favName, checked = show_prompt("Name this Favorite:")
-            favEntry = favName + "|" + dirName
-            writeappend = 'w'
-            if os.path.isfile(FAVORITELIST):
-                writeappend = 'a'
-            with open(FAVORITELIST, writeappend) as f:
-                f.write(favEntry+"\n")
+            favName, checked = show_prompt("Name this Favorite:", default=os.path.basename(dirName))
+            if checked:
+                favEntry = favName + "|" + dirName
+                writeappend = 'w'
+                if os.path.isfile(FAVORITELIST):
+                    writeappend = 'a'
+                with open(FAVORITELIST, writeappend) as f:
+                    f.write(favEntry+"\n")
 
 #
 # Function:    SetShortenDirectory
