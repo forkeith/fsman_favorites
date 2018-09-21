@@ -51,23 +51,27 @@ class GoToFavorite(DirectoryPaneCommand):
                 if '|' in dirTuple:
                     favName, favPath = dirTuple.strip().split('|')[0:2]
                     if favName == dirName:
-                        if '://' in favPath:
-                           self.pane.set_path(expandDirPath(favPath + os.sep))
-                        else:
-                           self.pane.set_path(as_url(expandDirPath(favPath + os.sep)))
+                        path = expandDirPath(favPath + os.sep)
+                        if '://' not in favPath:
+                            path = as_url(path)
+                        self.pane.set_path(path)
         clear_status_message()
 
     def _suggest_directory(self, query):
-        directories = ["Home|~"]
-        if os.path.isfile(FAVORITELIST):
-            with open(FAVORITELIST, "r") as f:
-                directories = f.readlines()
-        for dirTuple in directories:
-            if '|' in dirTuple:
-                dirName = dirTuple.split('|')[0]
-                match = contains_chars(dirName.lower(), query.lower())
-                if match or not query:
-                    yield QuicksearchItem(dirName, highlight=match)
+        return get_favorited_folders(query, query_what='fav', include_home=True)
+
+def get_favorited_folders(query='', query_what='dir', include_home=False):
+    directories = ["Home|~"] if include_home else []
+    if os.path.isfile(FAVORITELIST):
+        with open(FAVORITELIST, "r") as f:
+            directories = f.readlines()
+    for dirTuple in directories:
+        if '|' in dirTuple:
+            favName, dirName = dirTuple.strip().split('|')
+            match_against = dirName if query_what == 'dir' else favName
+            match = contains_chars(match_against.lower(), query.lower())
+            if match or not query:
+                yield QuicksearchItem(match_against, highlight=match)
 
 #
 # Function:    RemoveFavoriteDirectory
@@ -98,16 +102,7 @@ class RemoveFavoriteDirectory(DirectoryPaneCommand):
         clear_status_message()
 
     def _suggest_favorite(self, query):
-        favorites = [""]
-        if os.path.isfile(FAVORITELIST):
-            with open(FAVORITELIST, "r") as f:
-                favorites = f.readlines()
-        for favTuple in favorites:
-            if '|' in favTuple:
-                favName = favTuple.split('|')[0]
-                match = contains_chars(favName.lower(), query.lower())
-                if match or not query:
-                    yield QuicksearchItem(favName, highlight=match)
+        return get_favorited_folders(query, query_what='fav', include_home=False)
 #
 # Function:    RemoveShortenerDirectory
 #
@@ -190,6 +185,23 @@ class SetFavoriteDirectory(DirectoryPaneCommand):
     # directory. It will add to the list of project directories
     # and set the current project directory to the directory.     #
     def __call__(self):
+        dirName = self.get_target()
+        if dirName:
+            #
+            # Add to the list of projects. Get a name
+            # from the user.
+            #
+            dirName = shortenDirPath(dirName)
+            favName, checked = show_prompt("Name this Favorite:", default=os.path.basename(dirName))
+            if checked:
+                favEntry = favName + "|" + dirName
+                writeappend = 'w'
+                if os.path.isfile(FAVORITELIST):
+                    writeappend = 'a'
+                with open(FAVORITELIST, writeappend) as f:
+                    f.write(favEntry+"\n")
+
+    def get_target(self):
         #
         # Get the directory path.
         #
@@ -204,19 +216,14 @@ class SetFavoriteDirectory(DirectoryPaneCommand):
                 # name for this file's parent directory.
                 #
                 dirName = os.path.dirname(dirName)
-            #
-            # Add to the list of projects. Get a name
-            # from the user.
-            #
-            dirName = shortenDirPath(dirName)
-            favName, checked = show_prompt("Name this Favorite:", default=os.path.basename(dirName))
-            if checked:
-                favEntry = favName + "|" + dirName
-                writeappend = 'w'
-                if os.path.isfile(FAVORITELIST):
-                    writeappend = 'a'
-                with open(FAVORITELIST, writeappend) as f:
-                    f.write(favEntry+"\n")
+            return dirName
+        return None
+
+    def is_visible(self):
+        dirName = self.get_target()
+        dirName = shortenDirPath(dirName)
+        existing = any(get_favorited_folders(query=dirName, query_what='dir', include_home=False))
+        return not existing
 
 #
 # Function:    SetShortenDirectory
