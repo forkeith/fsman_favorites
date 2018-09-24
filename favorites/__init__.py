@@ -180,6 +180,7 @@ class RemoveShortenerDirectory(DirectoryPaneCommand):
 
 
 class SetFavoriteDirectory(DirectoryPaneCommand):
+    aliases = ('Set Favorite Directory', 'Add Directory to Favorites')
     #
     # This dirctory command is for setting up a new project
     # directory. It will add to the list of project directories
